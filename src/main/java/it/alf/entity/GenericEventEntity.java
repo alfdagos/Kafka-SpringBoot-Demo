@@ -5,9 +5,15 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.Lob;
 import jakarta.persistence.Table;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
 @Entity
 @Table(name = "events")
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
 public class GenericEventEntity {
     @Id
     private String id;
@@ -18,19 +24,4 @@ public class GenericEventEntity {
     @Lob
     @Column(nullable = true)
     private String payloadJson;
-
-    public GenericEventEntity() {}
-
-    public GenericEventEntity(String id, String type, String payloadJson) {
-        this.id = id;
-        this.type = type;
-        this.payloadJson = payloadJson;
-    }
-
-    public String getId() { return id; }
-    public void setId(String id) { this.id = id; }
-    public String getType() { return type; }
-    public void setType(String type) { this.type = type; }
-    public String getPayloadJson() { return payloadJson; }
-    public void setPayloadJson(String payloadJson) { this.payloadJson = payloadJson; }
 }
