@@ -12,6 +12,34 @@ spring:
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+  
+  # Spring DevTools configuration
+  devtools:
+    restart:
+      enabled: true
+      additional-paths: src/main/java
+    livereload:
+      enabled: true
+
+# Spring Actuator configuration
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,env,configprops,loggers,heapdump,threaddump
+      base-path: /actuator
+  endpoint:
+    health:
+      show-details: always
+      show-components: always
+  info:
+    env:
+      enabled: true
+    java:
+      enabled: true
+  metrics:
+    tags:
+      application: kafka-spring-boot
 
 app:
   kafka:

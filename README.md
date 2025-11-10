@@ -15,6 +15,9 @@ Principali tecnologie
 - Spring Boot 3.5.7
 - Spring Kafka
 - Spring Data JPA + H2 (in-memory per i test)
+- Lombok (per riduzione boilerplate code)
+- Spring DevTools (per sviluppo con hot reload)
+- Spring Actuator (per monitoraggio e metriche)
 - JUnit 5
 
 Indice
@@ -91,6 +94,28 @@ curl -X POST http://localhost:8080/api/events -H "Content-Type: application/json
 
 I consumer persistono i messaggi in tabelle H2. L'app espone endpoint GET per leggere le entità salvate (es. `/api/users/{id}`), oppure è possibile aprire la console H2 se abilitata (vedere `application.yml`).
 
+### Monitoraggio con Spring Actuator
+
+L'applicazione include Spring Actuator per il monitoraggio. Una volta avviata, sono disponibili i seguenti endpoint:
+
+- **Health Check**: `http://localhost:8080/actuator/health`
+- **Informazioni App**: `http://localhost:8080/actuator/info`
+- **Metriche**: `http://localhost:8080/actuator/metrics`
+- **Environment**: `http://localhost:8080/actuator/env`
+- **Configurazioni**: `http://localhost:8080/actuator/configprops`
+- **Loggers**: `http://localhost:8080/actuator/loggers`
+- **Thread Dump**: `http://localhost:8080/actuator/threaddump`
+- **Heap Dump**: `http://localhost:8080/actuator/heapdump`
+
+### Spring DevTools per lo sviluppo
+
+Il progetto include Spring DevTools che offre:
+- **Riavvio automatico** quando si modificano i file Java
+- **LiveReload** integrato per aggiornare automaticamente il browser
+- **Configurazioni ottimizzate** per lo sviluppo
+
+Per sfruttare il riavvio automatico, basta modificare un file Java e salvarlo. L'applicazione si riavvierà automaticamente.
+
 ## Testing — Embedded Kafka e stabilità dei test
 
 I test d'integrazione si appoggiano a `spring-kafka-test` e `@EmbeddedKafka` per eseguire un broker Kafka in-process.
@@ -117,8 +142,14 @@ Esempio sintetico (test):
 - I consumer sono semplici `@Service` con `@KafkaListener(...)` che trasformano i DTO in entity JPA e li salvano.
 
 Design choices e motivazioni
-- JsonSerializer/JsonDeserializer: usiamo il serializer JSON nativo di Spring Kafka per semplicità e leggibilità.
-- Tipare i consumer (ConsumerFactory<User>, ecc.) aiuta a ottenere la deserializzazione diretta nelle classi DTO senza conversioni manuali.
+- **JsonSerializer/JsonDeserializer**: usiamo il serializer JSON nativo di Spring Kafka per semplicità e leggibilità.
+- **Tipizzazione dei consumer** (ConsumerFactory<User>, ecc.) aiuta a ottenere la deserializzazione diretta nelle classi DTO senza conversioni manuali.
+- **Lombok**: tutte le entity e i DTO utilizzano Lombok per eliminare il boilerplate code (getter/setter/costruttori). Le annotazioni principali utilizzate sono:
+  - `@Data` - genera getter, setter, toString, equals, hashCode
+  - `@NoArgsConstructor` - costruttore vuoto (richiesto da JPA e Jackson)
+  - `@AllArgsConstructor` - costruttore con tutti i parametri
+- **Spring DevTools**: configurato per il riavvio automatico durante lo sviluppo e LiveReload per il browser.
+- **Spring Actuator**: configurato per esporre endpoint di monitoraggio completi con dettagli su salute, metriche e configurazioni.
 
 ## Debug & troubleshooting
 
