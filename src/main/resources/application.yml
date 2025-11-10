@@ -1,0 +1,23 @@
+server:
+  port: 8080
+
+spring:
+  kafka:
+    bootstrap-servers: localhost:9092
+    consumer:
+      group-id: default-group
+      auto-offset-reset: earliest
+      properties:
+        spring.json.trusted.packages: "it.alf,*"
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+
+app:
+  kafka:
+    topics:
+      users: users-topic
+      orders: orders-topic
+      notifications: notifications-topic
+      events: events-topic
+      deadletter: dlq-topic
