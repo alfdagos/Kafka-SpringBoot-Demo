@@ -162,3 +162,116 @@ Pull request benvenute. Per cambiamenti strutturali ai test, preferire refactori
 
 ---
 Documentazione generata automaticamente e commentata inline nel codice per facilitare la lettura.
+
+## Demo: usare Strimzi (Kafka su Kubernetes)
+
+Questa sezione mostra come provare rapidamente Kafka in un cluster Kubernetes usando l'operatore Strimzi.
+L'approccio più semplice per lo sviluppo locale è deployare Strimzi su un cluster locale (minikube/kind) e poi usare il port-forward per connettere l'applicazione locale.
+
+Prerequisiti
+- `kubectl` configurato per il cluster (minikube, kind o OpenShift)
+- `helm` (opzionale)
+- accesso alla macchina che esegue il cluster (minikube/kind)
+
+1) Creare lo namespace e installare l'operatore Strimzi
+
+```powershell
+kubectl create namespace kafka
+# installa Strimzi (operatore + CRDs)
+kubectl apply -f "https://strimzi.io/install/latest?namespace=kafka" -n kafka
+```
+
+2) Deploy di un cluster Kafka minimo (1 replica) — salva come `kafka-cluster.yaml` e applica
+
+```yaml
+apiVersion: kafka.strimzi.io/v1beta3
+kind: Kafka
+metadata:
+  name: my-cluster
+  namespace: kafka
+spec:
+  kafka:
+    version: 3.4.0
+    replicas: 1
+    listeners:
+      - name: plain
+        port: 9092
+        type: internal
+        tls: false
+      - name: external
+        port: 9094
+        type: nodeport
+        tls: false
+    storage:
+      type: ephemeral
+  zookeeper:
+    replicas: 1
+    storage:
+      type: ephemeral
+  entityOperator: {}
+```
+
+```powershell
+kubectl apply -f kafka-cluster.yaml -n kafka
+kubectl -n kafka wait kafka/my-cluster --for=condition=Ready --timeout=300s
+kubectl -n kafka get pods
+```
+
+3) Creare un topic (esempio `users-topic` usato dall'app)
+
+```yaml
+apiVersion: kafka.strimzi.io/v1beta3
+kind: KafkaTopic
+metadata:
+  name: users-topic
+  labels:
+    strimzi.io/cluster: my-cluster
+  namespace: kafka
+spec:
+  partitions: 1
+  replicas: 1
+```
+
+```powershell
+kubectl apply -f users-topic.yaml -n kafka
+kubectl -n kafka get kafkatopic
+```
+
+4) Accesso rapido da macchina locale (port-forward)
+
+Questo metodo è comodo per sviluppare e testare l'applicazione locale senza deployare l'app dentro Kubernetes.
+
+```powershell
+# porta il servizio bootstrap sul localhost:9092
+kubectl -n kafka port-forward svc/my-cluster-kafka-bootstrap 9092:9092
+```
+
+Poi configura `application.yml` (o es. `spring.kafka.bootstrap-servers`) con:
+
+```
+spring.kafka.bootstrap-servers: localhost:9092
+```
+
+Nota: se hai attivato `external` con `nodeport`, puoi leggere il servizio `my-cluster-kafka-external-bootstrap` (o la porta NodePort) usando l'IP del nodo.
+
+5) Testare con client Strimzi (console producer/consumer)
+
+Esempio rapido con una pod temporanea che usa l'immagine Strimzi:
+
+```powershell
+kubectl run --rm -i --tty kafka-client --image=strimzi/kafka:latest -- bash
+# dentro la shell della pod
+/opt/kafka/bin/kafka-console-producer.sh --broker-list my-cluster-kafka-bootstrap:9092 --topic users-topic
+/opt/kafka/bin/kafka-console-consumer.sh --bootstrap-server my-cluster-kafka-bootstrap:9092 --topic users-topic --from-beginning
+```
+
+6) Eseguire l'app localmente e inviare messaggi
+
+Con il port-forward attivo, puoi avviare l'app con `mvn spring-boot:run` (o eseguire la JAR) e usare gli endpoint REST già presenti per pubblicare messaggi sui topic Strimzi (es. `/api/users`).
+
+Consigli e note
+- Per test più realistici su CI/CD puoi deployare anche l'app dentro lo stesso cluster Kubernetes.
+- Per ambienti di produzione preferire configurazioni di listener `external` con TLS e autenticazione (SCRAM o TLS) — Strimzi gestisce `KafkaUser` e le secret TLS.
+- Le API CR e la versione `apiVersion` possono cambiare tra le release di Strimzi; utilizzare la documentazione ufficiale (https://strimzi.io/docs) per la versione installata.
+
+Se vuoi, posso aggiungere i manifest completi, uno script `kubectl` di demo oppure una GitHub Action che crea un cluster `kind` + Strimzi e testa l'app automaticamente.
