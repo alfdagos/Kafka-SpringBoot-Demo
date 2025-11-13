@@ -1,18 +1,3 @@
-
-# Kafka + Spring Boot (it.alf)
-
-Progetto di esempio (template) che mostra come integrare Apache Kafka con Spring Boot in un'applicazione Java moderna.
-
-Questa repository contiene:
-- produttori (REST controllers) che pubblicano messaggi su topic Kafka
-- consumer basati su `@KafkaListener` che deserializzano i DTO e li persistono su H2 tramite Spring Data JPA
-- configurazione completa di `ProducerFactory` / `ConsumerFactory` / `ConcurrentKafkaListenerContainerFactory`
-- gestione degli errori con `DefaultErrorHandler` e Dead Letter Queue (DLQ)
-- test d'integrazione con `spring-kafka-test` (Embedded Kafka)
-
-Principali tecnologie
-```markdown
-
 # Kafka + Spring Boot (it.alf)
 
 Example (template) project demonstrating how to integrate Apache Kafka with Spring Boot in a modern Java application.
@@ -290,4 +275,3 @@ Tips and notes
 
 If you want, I can add the full manifests as files, provide a kubectl demo script, or create a GitHub Action that brings up a `kind` cluster, installs Strimzi, and runs a smoke test.
 
-```
