@@ -11,177 +11,191 @@ Questa repository contiene:
 - test d'integrazione con `spring-kafka-test` (Embedded Kafka)
 
 Principali tecnologie
+```markdown
+
+# Kafka + Spring Boot (it.alf)
+
+Example (template) project demonstrating how to integrate Apache Kafka with Spring Boot in a modern Java application.
+
+This repository contains:
+- producers (REST controllers) that publish messages to Kafka topics
+- consumers using `@KafkaListener` that deserialize DTOs and persist them to H2 using Spring Data JPA
+- full configuration of `ProducerFactory` / `ConsumerFactory` / `ConcurrentKafkaListenerContainerFactory`
+- error handling with `DefaultErrorHandler` and a Dead Letter Queue (DLQ)
+- integration tests using `spring-kafka-test` (Embedded Kafka)
+
+Main technologies
 - Java 21
 - Spring Boot 3.5.7
 - Spring Kafka
-- Spring Data JPA + H2 (in-memory per i test)
-- Lombok (per riduzione boilerplate code)
-- Spring DevTools (per sviluppo con hot reload)
-- Spring Actuator (per monitoraggio e metriche)
+- Spring Data JPA + H2 (in-memory for tests)
+- Lombok (to reduce boilerplate)
+- Spring DevTools (development hot reload)
+- Spring Actuator (monitoring and metrics)
 - JUnit 5
 
-Indice
-- Panoramica
-- Argomenti (topics)
-- Come eseguire (quickstart)
-- API REST disponibili
-- Testing e sincronizzazione dei test EmbeddedKafka
-- Architettura e note di design
+Contents
+- Overview
+- Topics
+- How to run (quickstart)
+- Available REST APIs
+- Testing and EmbeddedKafka test synchronization
+- Architecture and design notes
 - Debug & troubleshooting
-- Contributi
+- Contributing
 
-## Panoramica
+## Overview
 
-Il progetto è pensato come base per esperimenti e demo. I componenti principali sono sotto il package `it.alf`.
+This project is intended as a starting point for experiments and demos. The main components are under the `it.alf` package.
 
-I consumer ricevono oggetti JSON che vengono deserializzati in DTO (classe `it.alf.dto.*`) e salvati in tabelle H2 tramite le entity JPA sotto `it.alf.entity`.
+Consumers receive JSON messages that are deserialized into DTOs (classes under `it.alf.dto.*`) and persisted into H2 tables using the JPA entities under `it.alf.entity`.
 
 ## Topics
-I topic usati nell'applicazione (configurati in `application.yml`):
-- `users-topic` — messaggi di tipo `User`
-- `orders-topic` — messaggi di tipo `Order`
-- `notifications-topic` — messaggi di tipo `Notification`
-- `events-topic` — messaggi di tipo `GenericEvent`
-- `dlq-topic` — dead-letter queue quando i messaggi non vengono processati correttamente
+Topics used by the application (configured in `application.yml`):
+- `users-topic` — messages of type `User`
+- `orders-topic` — messages of type `Order`
+- `notifications-topic` — messages of type `Notification`
+- `events-topic` — messages of type `GenericEvent`
+- `dlq-topic` — dead-letter queue used when messages cannot be processed correctly
 
-I bean `NewTopic` sono creati dal `KafkaConfig` all'avvio per facilitare l'esperienza di sviluppo.
+`NewTopic` beans are created by `KafkaConfig` at startup to simplify the developer experience.
 
 ## Quickstart
 
-Prerequisiti
-- Docker (per eseguire Kafka in locale) o un broker Kafka disponibile
-- Maven 3.8+ e JDK 21
+Prerequisites
+- Docker (to run Kafka locally) or a running Kafka broker
+- Maven 3.8+ and JDK 21
 
-1) Avviare Kafka in locale (facoltativo):
+1) Start Kafka locally (optional):
 
 ```powershell
 docker-compose up -d
 ```
 
-2) Avviare l'app in modalità sviluppo:
+2) Run the application in development mode:
 
 ```powershell
 mvn spring-boot:run
 ```
 
-3) Usare le API REST per pubblicare messaggi su Kafka (esempi PowerShell/curl)
+3) Use the REST APIs to publish messages to Kafka (PowerShell/curl examples)
 
-- Creare un `User`:
+- Create a `User`:
 
 ```powershell
 curl -X POST http://localhost:8080/api/users -H "Content-Type: application/json" -d '{"id":"u1","name":"Alice","email":"alice@example.com"}'
 ```
 
-- Creare un `Order`:
+- Create an `Order`:
 
 ```powershell
 curl -X POST http://localhost:8080/api/orders -H "Content-Type: application/json" -d '{"id":"o1","userId":"u1","product":"Book","amount":12.5}'
 ```
 
-- Invio `Notification`:
+- Send a `Notification`:
 
 ```powershell
 curl -X POST http://localhost:8080/api/notifications -H "Content-Type: application/json" -d '{"id":"n1","message":"Order received","level":"INFO"}'
 ```
 
-- Invio `GenericEvent`:
+- Send a `GenericEvent`:
 
 ```powershell
 curl -X POST http://localhost:8080/api/events -H "Content-Type: application/json" -d '{"id":"e1","type":"user.signup","payload":{"userId":"u1"}}'
 ```
 
-### Controllare i record persistiti
+### Check persisted records
 
-I consumer persistono i messaggi in tabelle H2. L'app espone endpoint GET per leggere le entità salvate (es. `/api/users/{id}`), oppure è possibile aprire la console H2 se abilitata (vedere `application.yml`).
+Consumers persist messages into H2 tables. The app exposes GET endpoints to read saved entities (e.g. `/api/users/{id}`) or you can open the H2 console if enabled (see `application.yml`).
 
-### Monitoraggio con Spring Actuator
+### Monitoring with Spring Actuator
 
-L'applicazione include Spring Actuator per il monitoraggio. Una volta avviata, sono disponibili i seguenti endpoint:
+The application includes Spring Actuator for monitoring. Once the app is running, the following endpoints are available:
 
 - **Health Check**: `http://localhost:8080/actuator/health`
-- **Informazioni App**: `http://localhost:8080/actuator/info`
-- **Metriche**: `http://localhost:8080/actuator/metrics`
+- **App Info**: `http://localhost:8080/actuator/info`
+- **Metrics**: `http://localhost:8080/actuator/metrics`
 - **Environment**: `http://localhost:8080/actuator/env`
-- **Configurazioni**: `http://localhost:8080/actuator/configprops`
+- **Config Props**: `http://localhost:8080/actuator/configprops`
 - **Loggers**: `http://localhost:8080/actuator/loggers`
 - **Thread Dump**: `http://localhost:8080/actuator/threaddump`
 - **Heap Dump**: `http://localhost:8080/actuator/heapdump`
 
-### Spring DevTools per lo sviluppo
+### Spring DevTools for development
 
-Il progetto include Spring DevTools che offre:
-- **Riavvio automatico** quando si modificano i file Java
-- **LiveReload** integrato per aggiornare automaticamente il browser
-- **Configurazioni ottimizzate** per lo sviluppo
+The project includes Spring DevTools, which provides:
+- **Automatic restart** when Java files change
+- **LiveReload** integration for the browser
+- **Development-optimized defaults**
 
-Per sfruttare il riavvio automatico, basta modificare un file Java e salvarlo. L'applicazione si riavvierà automaticamente.
+To use automatic restart, modify and save a Java file — the application will restart automatically.
 
-## Testing — Embedded Kafka e stabilità dei test
+## Testing — Embedded Kafka and test stability
 
-I test d'integrazione si appoggiano a `spring-kafka-test` e `@EmbeddedKafka` per eseguire un broker Kafka in-process.
+Integration tests rely on `spring-kafka-test` and `@EmbeddedKafka` to run an in-process Kafka broker.
 
-Problemi comuni
-- Race conditions: il producer può inviare il messaggio prima che il container del listener sia assegnato alle partizioni. Questo provoca test intermittenti con repository vuote.
-- Contesto condiviso: i test Spring condividono il context per default e possono interferire tra loro.
+Common issues
+- Race conditions: a producer might send a message before the listener container is assigned to partitions. This can cause flaky tests with empty repositories.
+- Shared context: Spring tests share the application context by default and can interfere with each other.
 
-Soluzioni usate in questo progetto
-- Nei test di integrazione si aspetta esplicitamente l'assegnazione del container listener prima di inviare il messaggio, usando il `KafkaListenerEndpointRegistry` e `ContainerTestUtils.waitForAssignment(...)`.
-- Si usa `@DirtiesContext(classMode = AFTER_EACH_TEST_METHOD)` per isolare i test quando necessario.
-- I test usano un polling semplice con timeout (esteso a 10s) per aspettare che l'entità venga scritta in DB. Se preferite, potete sostituire il polling con Awaitility per codice più espressivo.
+Solutions used in this project
+- Integration tests explicitly wait for the listener container assignment before sending messages, using `KafkaListenerEndpointRegistry` and `ContainerTestUtils.waitForAssignment(...)`.
+- `@DirtiesContext(classMode = AFTER_EACH_TEST_METHOD)` is used to isolate tests when necessary.
+- Tests use a simple polling approach with a timeout (extended to 10s) to wait for the entity to be written to the DB. You can replace this with Awaitility for more expressive assertions.
 
-Esempio sintetico (test):
+Typical test flow:
 
-1) attendere che il container sia assegnato
-2) inviare il messaggio con `KafkaTemplate.send(...).get()`
-3) pollare il repository fino a che il record non compare
+1) wait for the listener container assignment
+2) send the message with `KafkaTemplate.send(...).get()`
+3) poll the repository until the record appears
 
-## Architettura e note di design
+## Architecture and design notes
 
-- `KafkaConfig` configura producer/consumer factory e fornisce `ConcurrentKafkaListenerContainerFactory` tipizzate per ciascun DTO.
-- `DefaultErrorHandler` è impostato con un `DeadLetterPublishingRecoverer` che invia i record falliti su `dlq-topic` dopo un numero definito di retry.
-- I consumer sono semplici `@Service` con `@KafkaListener(...)` che trasformano i DTO in entity JPA e li salvano.
+- `KafkaConfig` configures producer/consumer factories and provides typed `ConcurrentKafkaListenerContainerFactory` instances for each DTO.
+- `DefaultErrorHandler` is configured with a `DeadLetterPublishingRecoverer` that publishes failed records to `dlq-topic` after a configured number of retries.
+- Consumers are simple `@Service` components with `@KafkaListener(...)` that map DTOs to JPA entities and persist them.
 
-Design choices e motivazioni
-- **JsonSerializer/JsonDeserializer**: usiamo il serializer JSON nativo di Spring Kafka per semplicità e leggibilità.
-- **Tipizzazione dei consumer** (ConsumerFactory<User>, ecc.) aiuta a ottenere la deserializzazione diretta nelle classi DTO senza conversioni manuali.
-- **Lombok**: tutte le entity e i DTO utilizzano Lombok per eliminare il boilerplate code (getter/setter/costruttori). Le annotazioni principali utilizzate sono:
-  - `@Data` - genera getter, setter, toString, equals, hashCode
-  - `@NoArgsConstructor` - costruttore vuoto (richiesto da JPA e Jackson)
-  - `@AllArgsConstructor` - costruttore con tutti i parametri
-- **Spring DevTools**: configurato per il riavvio automatico durante lo sviluppo e LiveReload per il browser.
-- **Spring Actuator**: configurato per esporre endpoint di monitoraggio completi con dettagli su salute, metriche e configurazioni.
+Design choices and rationale
+- **JsonSerializer/JsonDeserializer**: we use Spring Kafka's JSON serializer for simplicity and readability.
+- **Typed consumers** (ConsumerFactory<User>, etc.) enable direct deserialization into DTO classes without manual conversion.
+- **Lombok**: entities and DTOs use Lombok to remove boilerplate (getters/setters/constructors). Main annotations used:
+  - `@Data` — generates getters, setters, toString, equals, and hashCode
+  - `@NoArgsConstructor` — no-args constructor (required by JPA and Jackson)
+  - `@AllArgsConstructor` — all-args constructor
+- **Spring DevTools**: configured for automatic restart and LiveReload during development.
+- **Spring Actuator**: configured to expose detailed monitoring endpoints for health, metrics, and configuration.
 
 ## Debug & troubleshooting
 
-- Test falliscono con repository vuote: assicuratevi che i listener siano assegnati. Controllare i log del test per "partitions assigned".
-- Messaggi in DLQ: aprire `dlq-topic` e leggere i record per capire l'errore di deserializzazione o business exception.
+- Tests fail with empty repositories: ensure listeners are assigned; check test logs for "partitions assigned".
+- Messages in DLQ: inspect the `dlq-topic` records to diagnose deserialization or business exceptions.
 
-## Contribuire
+## Contributing
 
-Pull request benvenute. Per cambiamenti strutturali ai test, preferire refactoring incrementali e verificare `mvn test`.
+Pull requests are welcome. For structural changes to tests, prefer incremental refactoring and verify changes with `mvn test`.
 
 ---
-Documentazione generata automaticamente e commentata inline nel codice per facilitare la lettura.
+Automatically generated documentation and inline code comments are provided to help readability.
 
-## Demo: usare Strimzi (Kafka su Kubernetes)
+## Demo: using Strimzi (Kafka on Kubernetes)
 
-Questa sezione mostra come provare rapidamente Kafka in un cluster Kubernetes usando l'operatore Strimzi.
-L'approccio più semplice per lo sviluppo locale è deployare Strimzi su un cluster locale (minikube/kind) e poi usare il port-forward per connettere l'applicazione locale.
+This section explains how to quickly try Kafka in a Kubernetes cluster using the Strimzi operator.
+The simplest approach for local development is to deploy Strimzi on a local cluster (minikube/kind) and then use port-forwarding to connect your local application.
 
-Prerequisiti
-- `kubectl` configurato per il cluster (minikube, kind o OpenShift)
-- `helm` (opzionale)
-- accesso alla macchina che esegue il cluster (minikube/kind)
+Prerequisites
+- `kubectl` configured for your cluster (minikube, kind, or OpenShift)
+- `helm` (optional)
+- access to the machine running the cluster (minikube/kind)
 
-1) Creare lo namespace e installare l'operatore Strimzi
+1) Create the namespace and install the Strimzi operator
 
 ```powershell
 kubectl create namespace kafka
-# installa Strimzi (operatore + CRDs)
+# install Strimzi (operator + CRDs)
 kubectl apply -f "https://strimzi.io/install/latest?namespace=kafka" -n kafka
 ```
 
-2) Deploy di un cluster Kafka minimo (1 replica) — salva come `kafka-cluster.yaml` e applica
+2) Deploy a minimal Kafka cluster (1 replica) — save as `kafka-cluster.yaml` and apply
 
 ```yaml
 apiVersion: kafka.strimzi.io/v1beta3
@@ -217,7 +231,7 @@ kubectl -n kafka wait kafka/my-cluster --for=condition=Ready --timeout=300s
 kubectl -n kafka get pods
 ```
 
-3) Creare un topic (esempio `users-topic` usato dall'app)
+3) Create a topic (example `users-topic` used by the app)
 
 ```yaml
 apiVersion: kafka.strimzi.io/v1beta3
@@ -237,41 +251,43 @@ kubectl apply -f users-topic.yaml -n kafka
 kubectl -n kafka get kafkatopic
 ```
 
-4) Accesso rapido da macchina locale (port-forward)
+4) Quick access from your local machine (port-forward)
 
-Questo metodo è comodo per sviluppare e testare l'applicazione locale senza deployare l'app dentro Kubernetes.
+This method is convenient for developing and testing the local application without deploying the app into Kubernetes.
 
 ```powershell
-# porta il servizio bootstrap sul localhost:9092
+# forward the bootstrap service to localhost:9092
 kubectl -n kafka port-forward svc/my-cluster-kafka-bootstrap 9092:9092
 ```
 
-Poi configura `application.yml` (o es. `spring.kafka.bootstrap-servers`) con:
+Then configure `application.yml` (or your `spring.kafka.bootstrap-servers`) with:
 
 ```
 spring.kafka.bootstrap-servers: localhost:9092
 ```
 
-Nota: se hai attivato `external` con `nodeport`, puoi leggere il servizio `my-cluster-kafka-external-bootstrap` (o la porta NodePort) usando l'IP del nodo.
+Note: if you configured the `external` listener as `nodeport`, you can use the node IP and NodePort exposed by the `my-cluster-kafka-external-bootstrap` service.
 
-5) Testare con client Strimzi (console producer/consumer)
+5) Test with Strimzi clients (console producer/consumer)
 
-Esempio rapido con una pod temporanea che usa l'immagine Strimzi:
+Quick example using a temporary pod that contains Kafka tools:
 
 ```powershell
 kubectl run --rm -i --tty kafka-client --image=strimzi/kafka:latest -- bash
-# dentro la shell della pod
+# inside the pod shell
 /opt/kafka/bin/kafka-console-producer.sh --broker-list my-cluster-kafka-bootstrap:9092 --topic users-topic
 /opt/kafka/bin/kafka-console-consumer.sh --bootstrap-server my-cluster-kafka-bootstrap:9092 --topic users-topic --from-beginning
 ```
 
-6) Eseguire l'app localmente e inviare messaggi
+6) Run the app locally and send messages
 
-Con il port-forward attivo, puoi avviare l'app con `mvn spring-boot:run` (o eseguire la JAR) e usare gli endpoint REST già presenti per pubblicare messaggi sui topic Strimzi (es. `/api/users`).
+With the port-forward active, you can start the app with `mvn spring-boot:run` (or run the JAR) and use the existing REST endpoints to publish messages to the Strimzi topics (for example `/api/users`).
 
-Consigli e note
-- Per test più realistici su CI/CD puoi deployare anche l'app dentro lo stesso cluster Kubernetes.
-- Per ambienti di produzione preferire configurazioni di listener `external` con TLS e autenticazione (SCRAM o TLS) — Strimzi gestisce `KafkaUser` e le secret TLS.
-- Le API CR e la versione `apiVersion` possono cambiare tra le release di Strimzi; utilizzare la documentazione ufficiale (https://strimzi.io/docs) per la versione installata.
+Tips and notes
+- For more realistic CI/CD tests you can deploy the application into the same Kubernetes cluster.
+- For production use, prefer `external` listeners with TLS and authentication (SCRAM or TLS) — Strimzi manages `KafkaUser` and TLS secrets for you.
+- CR API versions can change across Strimzi releases; consult the official docs (https://strimzi.io/docs) for the version you install.
 
-Se vuoi, posso aggiungere i manifest completi, uno script `kubectl` di demo oppure una GitHub Action che crea un cluster `kind` + Strimzi e testa l'app automaticamente.
+If you want, I can add the full manifests as files, provide a kubectl demo script, or create a GitHub Action that brings up a `kind` cluster, installs Strimzi, and runs a smoke test.
+
+```
